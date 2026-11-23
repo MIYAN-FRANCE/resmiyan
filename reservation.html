@@ -293,20 +293,19 @@ function clearTrackingCookies() {
 // Conversion « Réservation confirmée » : appelée UNIQUEMENT quand l'API a répondu ok.
 function trackBookingConfirmed(id) {
   if (bookingTracked) return;
+  // L'Apps Script répond {ok:true, id:'OK'} sans rien enregistrer quand le champ anti-spam caché est rempli (robot) :
+  // sans vrai identifiant de réservation (MY-xxxxxxxx), ce n'est pas une réservation, donc aucune conversion.
+  if (!id || id === 'OK') return;
   bookingTracked = true;
-  pendingBookingId = id || 'OK';
+  pendingBookingId = String(id);
   sendConversion();
 }
 function sendConversion() {
   if (pendingBookingId === null || readConsent() !== 'accepted') return;   // sans consentement : rien ne part
   const id = pendingBookingId; pendingBookingId = null;
   if (DEMO) { console.info('[suivi] Mode DEMO : conversion NON envoyée (réservation ' + id + ')'); return; }
-  const tid = id !== 'OK' ? String(id) : null;
-  const g = { send_to: GADS_CONV_BOOKING }; if (tid) g.transaction_id = tid;   // pas de « value » : une table n'a pas de montant
-  gtag('event', 'conversion', g);
-  const meta = [META_STANDARD_EVENTS.includes(META_EVENT) ? 'track' : 'trackCustom', META_EVENT, {}];
-  if (tid) meta.push({ eventID: tid });                                        // déduplication côté Meta
-  fbq.apply(null, meta);
+  gtag('event', 'conversion', { send_to: GADS_CONV_BOOKING, transaction_id: id });   // pas de « value » : une table n'a pas de montant
+  fbq(META_STANDARD_EVENTS.includes(META_EVENT) ? 'track' : 'trackCustom', META_EVENT, {}, { eventID: id });   // eventID = déduplication côté Meta
 }
 
 // Bannière
